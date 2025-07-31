@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, FolderPlus, Upload, Download, Eye, FileText, Image, FileSpreadsheet, Presentation } from 'lucide-react';
+import { Plus, FolderPlus, Upload, Download, Eye, FileText, Image, FileSpreadsheet, Presentation, File, FileType } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
@@ -150,12 +150,41 @@ const FADModule = () => {
     window.open(data.publicUrl, '_blank');
   };
 
-  const getFileIcon = (fileType: string) => {
-    if (fileType.includes('image')) return <Image className="w-4 h-4" />;
-    if (fileType.includes('pdf')) return <FileText className="w-4 h-4" />;
-    if (fileType.includes('spreadsheet') || fileType.includes('excel')) return <FileSpreadsheet className="w-4 h-4" />;
-    if (fileType.includes('presentation') || fileType.includes('powerpoint')) return <Presentation className="w-4 h-4" />;
-    return <FileText className="w-4 h-4" />;
+  const getFileIcon = (fileType: string, fileName: string) => {
+    const lowerFileName = fileName.toLowerCase();
+    
+    // PDF files - Red icon
+    if (fileType.includes('pdf') || lowerFileName.endsWith('.pdf')) {
+      return <FileText className="w-12 h-12 text-red-500" />;
+    }
+    
+    // DOCX files - Blue icon
+    if (fileType.includes('wordprocessingml') || lowerFileName.endsWith('.docx')) {
+      return <FileText className="w-12 h-12 text-blue-500" />;
+    }
+    
+    // TXT files - Gray icon
+    if (fileType.includes('text/plain') || lowerFileName.endsWith('.txt')) {
+      return <FileType className="w-12 h-12 text-gray-500" />;
+    }
+    
+    // XLSX files - Green icon
+    if (fileType.includes('spreadsheetml') || fileType.includes('excel') || lowerFileName.endsWith('.xlsx')) {
+      return <FileSpreadsheet className="w-12 h-12 text-green-500" />;
+    }
+    
+    // PPTX files - Orange icon
+    if (fileType.includes('presentationml') || fileType.includes('powerpoint') || lowerFileName.endsWith('.pptx')) {
+      return <Presentation className="w-12 h-12 text-orange-500" />;
+    }
+    
+    // Image files - Purple icon
+    if (fileType.includes('image') || lowerFileName.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) {
+      return <Image className="w-12 h-12 text-purple-500" />;
+    }
+    
+    // Generic files - Default icon
+    return <File className="w-12 h-12 text-muted-foreground" />;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -266,9 +295,14 @@ const FADModule = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {groupDocuments.map((document) => (
                         <div key={document.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                          <div className="flex items-start gap-3">
-                            {getFileIcon(document.file_type)}
-                            <div className="flex-1 min-w-0">
+                          <div className="flex flex-col items-center text-center space-y-3">
+                            {/* File Icon Above Filename */}
+                            <div className="flex justify-center">
+                              {getFileIcon(document.file_type, document.name)}
+                            </div>
+                            
+                            {/* File Details */}
+                            <div className="w-full">
                               <h4 className="font-medium truncate">{document.name}</h4>
                               <p className="text-sm text-muted-foreground">
                                 {formatFileSize(document.file_size)}
@@ -277,16 +311,18 @@ const FADModule = () => {
                                 {new Date(document.created_at).toLocaleDateString()}
                               </p>
                             </div>
-                          </div>
-                          <div className="flex gap-2 mt-3">
-                            <Button size="sm" variant="outline" onClick={() => viewFile(document)}>
-                              <Eye className="w-3 h-3 mr-1" />
-                              View
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => downloadFile(document)}>
-                              <Download className="w-3 h-3 mr-1" />
-                              Download
-                            </Button>
+                            
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 w-full">
+                              <Button size="sm" variant="outline" onClick={() => viewFile(document)} className="flex-1">
+                                <Eye className="w-3 h-3 mr-1" />
+                                View
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => downloadFile(document)} className="flex-1">
+                                <Download className="w-3 h-3 mr-1" />
+                                Download
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}

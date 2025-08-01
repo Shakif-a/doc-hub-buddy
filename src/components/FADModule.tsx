@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, FolderPlus, Upload, Download, Eye, FileText, Image, FileSpreadsheet, Presentation, File, FileType } from 'lucide-react';
+import { FolderPlus } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { GroupCard } from './fad/GroupCard';
+import { AddGroupDialog } from './fad/AddGroupDialog';
 
 interface Group {
   id: string;
   name: string;
   created_at: string;
+  display_order: number;
 }
 
 interface Document {
@@ -21,6 +21,7 @@ interface Document {
   file_type: string;
   file_size: number;
   created_at: string;
+  display_order: number;
 }
 
 const FADModule = () => {
@@ -41,7 +42,7 @@ const FADModule = () => {
     const { data, error } = await supabase
       .from('groups')
       .select('*')
-      .order('created_at', { ascending: true });
+      .order('display_order', { ascending: true });
     
     if (error) {
       toast({ title: "Error fetching groups", description: error.message, variant: "destructive" });
@@ -54,7 +55,7 @@ const FADModule = () => {
     const { data, error } = await supabase
       .from('documents')
       .select('*')
-      .order('created_at', { ascending: true });
+      .order('display_order', { ascending: true });
     
     if (error) {
       toast({ title: "Error fetching documents", description: error.message, variant: "destructive" });
@@ -67,9 +68,14 @@ const FADModule = () => {
     if (!newGroupName.trim()) return;
     
     setLoading(true);
+    const maxOrder = Math.max(...groups.map(g => g.display_order), 0);
+    
     const { data, error } = await supabase
       .from('groups')
-      .insert([{ name: newGroupName.trim() }])
+      .insert([{ 
+        name: newGroupName.trim(),
+        display_order: maxOrder + 1
+      }])
       .select();
 
     if (error) {
@@ -88,6 +94,10 @@ const FADModule = () => {
 
     setLoading(true);
     const fileName = `${Date.now()}-${selectedFile.name}`;
+    
+    // Get max order for this group
+    const groupDocs = documents.filter(d => d.group_id === groupId);
+    const maxOrder = Math.max(...groupDocs.map(d => d.display_order), 0);
     
     // Upload file to storage
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -108,7 +118,8 @@ const FADModule = () => {
         name: selectedFile.name,
         file_path: fileName,
         file_type: selectedFile.type,
-        file_size: selectedFile.size
+        file_size: selectedFile.size,
+        display_order: maxOrder + 1
       }]);
 
     if (dbError) {
@@ -150,49 +161,80 @@ const FADModule = () => {
     window.open(data.publicUrl, '_blank');
   };
 
-  const getFileIcon = (fileType: string, fileName: string) => {
-    const lowerFileName = fileName.toLowerCase();
-    
-    // PDF files - Red icon
-    if (fileType.includes('pdf') || lowerFileName.endsWith('.pdf')) {
-      return <FileText className="w-12 h-12 text-red-500" />;
-    }
-    
-    // DOCX files - Blue icon
-    if (fileType.includes('wordprocessingml') || lowerFileName.endsWith('.docx')) {
-      return <FileText className="w-12 h-12 text-blue-500" />;
-    }
-    
-    // TXT files - Gray icon
-    if (fileType.includes('text/plain') || lowerFileName.endsWith('.txt')) {
-      return <FileType className="w-12 h-12 text-gray-500" />;
-    }
-    
-    // XLSX files - Green icon
-    if (fileType.includes('spreadsheetml') || fileType.includes('excel') || lowerFileName.endsWith('.xlsx')) {
-      return <FileSpreadsheet className="w-12 h-12 text-green-500" />;
-    }
-    
-    // PPTX files - Orange icon
-    if (fileType.includes('presentationml') || fileType.includes('powerpoint') || lowerFileName.endsWith('.pptx')) {
-      return <Presentation className="w-12 h-12 text-orange-500" />;
-    }
-    
-    // Image files - Purple icon
-    if (fileType.includes('image') || lowerFileName.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) {
-      return <Image className="w-12 h-12 text-purple-500" />;
-    }
-    
-    // Generic files - Default icon
-    return <File className="w-12 h-12 text-muted-foreground" />;
+  const moveGroupUp = async (groupId: string) => {
+    const currentIndex = groups.findIndex(g => g.id === groupId);
+    if (currentIndex <= 0) return;
+
+    const currentGroup = groups[currentIndex];
+    const previousGroup = groups[currentIndex - 1];
+
+    // Swap display orders
+    await supabase.from('groups').update({ display_order: previousGroup.display_order }).eq('id', currentGroup.id);
+    await supabase.from('groups').update({ display_order: currentGroup.display_order }).eq('id', previousGroup.id);
+
+    fetchGroups();
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  const moveGroupDown = async (groupId: string) => {
+    const currentIndex = groups.findIndex(g => g.id === groupId);
+    if (currentIndex >= groups.length - 1) return;
+
+    const currentGroup = groups[currentIndex];
+    const nextGroup = groups[currentIndex + 1];
+
+    // Swap display orders
+    await supabase.from('groups').update({ display_order: nextGroup.display_order }).eq('id', currentGroup.id);
+    await supabase.from('groups').update({ display_order: currentGroup.display_order }).eq('id', nextGroup.id);
+
+    fetchGroups();
+  };
+
+  const moveDocumentUp = async (documentId: string) => {
+    const document = documents.find(d => d.id === documentId);
+    if (!document) return;
+
+    const groupDocs = documents.filter(d => d.group_id === document.group_id).sort((a, b) => a.display_order - b.display_order);
+    const currentIndex = groupDocs.findIndex(d => d.id === documentId);
+    
+    if (currentIndex <= 0) return;
+
+    const currentDoc = groupDocs[currentIndex];
+    const previousDoc = groupDocs[currentIndex - 1];
+
+    // Swap display orders
+    await supabase.from('documents').update({ display_order: previousDoc.display_order }).eq('id', currentDoc.id);
+    await supabase.from('documents').update({ display_order: currentDoc.display_order }).eq('id', previousDoc.id);
+
+    fetchDocuments();
+  };
+
+  const moveDocumentDown = async (documentId: string) => {
+    const document = documents.find(d => d.id === documentId);
+    if (!document) return;
+
+    const groupDocs = documents.filter(d => d.group_id === document.group_id).sort((a, b) => a.display_order - b.display_order);
+    const currentIndex = groupDocs.findIndex(d => d.id === documentId);
+    
+    if (currentIndex >= groupDocs.length - 1) return;
+
+    const currentDoc = groupDocs[currentIndex];
+    const nextDoc = groupDocs[currentIndex + 1];
+
+    // Swap display orders
+    await supabase.from('documents').update({ display_order: nextDoc.display_order }).eq('id', currentDoc.id);
+    await supabase.from('documents').update({ display_order: currentDoc.display_order }).eq('id', nextDoc.id);
+
+    fetchDocuments();
+  };
+
+  const handleFileSelect = (file: File, groupId: string) => {
+    setSelectedFile(file);
+    setUploadingGroupId(groupId);
+  };
+
+  const handleCancelUpload = () => {
+    setSelectedFile(null);
+    setUploadingGroupId('');
   };
 
   return (
@@ -209,127 +251,42 @@ const FADModule = () => {
           </Button>
         </div>
 
-        {/* Add Group Dialog */}
-        <Dialog open={showAddGroup} onOpenChange={setShowAddGroup}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Group</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Input
-                placeholder="Group name"
-                value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && createGroup()}
-              />
-              <div className="flex gap-2">
-                <Button onClick={createGroup} disabled={loading || !newGroupName.trim()}>
-                  Create Group
-                </Button>
-                <Button variant="outline" onClick={() => setShowAddGroup(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <AddGroupDialog
+          isOpen={showAddGroup}
+          newGroupName={newGroupName}
+          loading={loading}
+          onOpenChange={setShowAddGroup}
+          onNameChange={setNewGroupName}
+          onCreateGroup={createGroup}
+        />
 
         {/* Groups and Documents */}
         <div className="space-y-6">
-          {groups.map((group) => {
-            const groupDocuments = documents.filter(doc => doc.group_id === group.id);
+          {groups.map((group, index) => {
+            const groupDocuments = documents
+              .filter(doc => doc.group_id === group.id)
+              .sort((a, b) => a.display_order - b.display_order);
             
             return (
-              <Card key={group.id} className="w-full">
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle className="text-xl">{group.name}</CardTitle>
-                    <div className="flex gap-2">
-                      <input
-                        type="file"
-                        id={`file-${group.id}`}
-                        className="hidden"
-                        accept=".jpg,.jpeg,.png,.pdf,.docx,.xlsx,.pptx"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setSelectedFile(file);
-                            setUploadingGroupId(group.id);
-                          }
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        onClick={() => document.getElementById(`file-${group.id}`)?.click()}
-                        className="flex items-center gap-2"
-                      >
-                        <Upload className="w-4 h-4" />
-                        Upload File
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {selectedFile && uploadingGroupId === group.id && (
-                    <div className="mb-4 p-4 border rounded-lg bg-muted">
-                      <div className="flex justify-between items-center">
-                        <span>Selected: {selectedFile.name}</span>
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={() => uploadFile(group.id)} disabled={loading}>
-                            {loading ? 'Uploading...' : 'Upload'}
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => {
-                            setSelectedFile(null);
-                            setUploadingGroupId('');
-                          }}>
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {groupDocuments.length === 0 ? (
-                    <p className="text-muted-foreground">No documents in this group yet.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {groupDocuments.map((document) => (
-                        <div key={document.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                          <div className="flex flex-col items-center text-center space-y-3">
-                            {/* File Icon Above Filename */}
-                            <div className="flex justify-center">
-                              {getFileIcon(document.file_type, document.name)}
-                            </div>
-                            
-                            {/* File Details */}
-                            <div className="w-full">
-                              <h4 className="font-medium truncate">{document.name}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                {formatFileSize(document.file_size)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(document.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                            
-                            {/* Action Buttons */}
-                            <div className="flex gap-2 w-full">
-                              <Button size="sm" variant="outline" onClick={() => viewFile(document)} className="flex-1">
-                                <Eye className="w-3 h-3 mr-1" />
-                                View
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => downloadFile(document)} className="flex-1">
-                                <Download className="w-3 h-3 mr-1" />
-                                Download
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <GroupCard
+                key={group.id}
+                group={group}
+                documents={groupDocuments}
+                selectedFile={selectedFile}
+                uploadingGroupId={uploadingGroupId}
+                loading={loading}
+                canMoveUp={index > 0}
+                canMoveDown={index < groups.length - 1}
+                onFileSelect={handleFileSelect}
+                onUpload={uploadFile}
+                onCancelUpload={handleCancelUpload}
+                onDownloadFile={downloadFile}
+                onViewFile={viewFile}
+                onMoveGroupUp={moveGroupUp}
+                onMoveGroupDown={moveGroupDown}
+                onMoveDocumentUp={moveDocumentUp}
+                onMoveDocumentDown={moveDocumentDown}
+              />
             );
           })}
         </div>

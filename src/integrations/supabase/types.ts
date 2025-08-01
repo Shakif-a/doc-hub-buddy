@@ -17,6 +17,7 @@ export type Database = {
       documents: {
         Row: {
           created_at: string
+          display_order: number | null
           file_path: string
           file_size: number
           file_type: string
@@ -27,6 +28,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          display_order?: number | null
           file_path: string
           file_size: number
           file_type: string
@@ -37,6 +39,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          display_order?: number | null
           file_path?: string
           file_size?: number
           file_type?: string
@@ -58,18 +61,21 @@ export type Database = {
       groups: {
         Row: {
           created_at: string
+          display_order: number | null
           id: string
           name: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          display_order?: number | null
           id?: string
           name: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          display_order?: number | null
           id?: string
           name?: string
           updated_at?: string

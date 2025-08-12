@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 import { FileCard } from './FileCard';
 import { FileUpload } from './FileUpload';
 
@@ -29,6 +29,7 @@ interface GroupCardProps {
   selectedFile: File | null;
   uploadingGroupId: string;
   loading: boolean;
+  isAdmin: boolean;
   canMoveUp: boolean;
   canMoveDown: boolean;
   onFileSelect: (file: File, groupId: string) => void;
@@ -36,6 +37,8 @@ interface GroupCardProps {
   onCancelUpload: () => void;
   onDownloadFile: (document: Document) => void;
   onViewFile: (document: Document) => void;
+  onDeleteFile: (document: Document) => void;
+  onDeleteGroup: (groupId: string) => void;
   onMoveGroupUp: (groupId: string) => void;
   onMoveGroupDown: (groupId: string) => void;
   onMoveDocumentUp: (documentId: string) => void;
@@ -48,6 +51,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   selectedFile,
   uploadingGroupId,
   loading,
+  isAdmin,
   canMoveUp,
   canMoveDown,
   onFileSelect,
@@ -55,6 +59,8 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   onCancelUpload,
   onDownloadFile,
   onViewFile,
+  onDeleteFile,
+  onDeleteGroup,
   onMoveGroupUp,
   onMoveGroupDown,
   onMoveDocumentUp,
@@ -85,6 +91,18 @@ export const GroupCard: React.FC<GroupCardProps> = ({
               >
                 <ChevronDown className="w-3 h-3" />
               </Button>
+              {isAdmin && (
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => onDeleteGroup(group.id)}
+                  disabled={documents.length > 0 || loading}
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  title={documents.length > 0 ? "Group must be empty to delete" : "Delete group"}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              )}
             </div>
           </div>
           <FileUpload
@@ -107,8 +125,10 @@ export const GroupCard: React.FC<GroupCardProps> = ({
               <FileCard
                 key={document.id}
                 document={document}
+                isAdmin={isAdmin}
                 onDownload={onDownloadFile}
                 onView={onViewFile}
+                onDelete={onDeleteFile}
                 onMoveUp={onMoveDocumentUp}
                 onMoveDown={onMoveDocumentDown}
                 canMoveUp={index > 0}

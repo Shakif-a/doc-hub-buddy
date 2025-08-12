@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { FolderPlus } from 'lucide-react';
+import { FolderPlus, Shield } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { GroupCard } from './fad/GroupCard';
 import { AddGroupDialog } from './fad/AddGroupDialog';
+import { AdminLoginDialog } from './fad/AdminLoginDialog';
 
 interface Group {
   id: string;
@@ -32,6 +33,8 @@ const FADModule = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingGroupId, setUploadingGroupId] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   useEffect(() => {
     fetchGroups();
@@ -237,18 +240,110 @@ const FADModule = () => {
     setUploadingGroupId('');
   };
 
+  const handleAdminLogin = () => {
+    setIsAdmin(true);
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false);
+  };
+
+  const deleteFile = async (document: Document) => {
+    if (!isAdmin) return;
+
+    setLoading(true);
+
+    // Delete from storage first
+    const { error: storageError } = await supabase.storage
+      .from('documents')
+      .remove([document.file_path]);
+
+    if (storageError) {
+      toast({ title: "Error deleting file from storage", description: storageError.message, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+
+    // Delete from database
+    const { error: dbError } = await supabase
+      .from('documents')
+      .delete()
+      .eq('id', document.id);
+
+    if (dbError) {
+      toast({ title: "Error deleting document record", description: dbError.message, variant: "destructive" });
+    } else {
+      toast({ title: "File deleted successfully" });
+      fetchDocuments();
+    }
+    
+    setLoading(false);
+  };
+
+  const deleteGroup = async (groupId: string) => {
+    if (!isAdmin) return;
+
+    // Check if group has documents
+    const groupDocs = documents.filter(d => d.group_id === groupId);
+    if (groupDocs.length > 0) {
+      toast({ 
+        title: "Cannot delete group", 
+        description: "Group must be empty before deletion",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    const { error } = await supabase
+      .from('groups')
+      .delete()
+      .eq('id', groupId);
+
+    if (error) {
+      toast({ title: "Error deleting group", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Group deleted successfully" });
+      fetchGroups();
+    }
+    
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Frequently Accessed Documents</h1>
-          <Button
-            onClick={() => setShowAddGroup(true)}
-            className="flex items-center gap-2"
-          >
-            <FolderPlus className="w-4 h-4" />
-            Add Group
-          </Button>
+          <div className="flex gap-2">
+            {isAdmin ? (
+              <Button
+                variant="destructive"
+                onClick={handleAdminLogout}
+                className="flex items-center gap-2"
+              >
+                <Shield className="w-4 h-4" />
+                Exit Admin
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setShowAdminLogin(true)}
+                className="flex items-center gap-2"
+              >
+                <Shield className="w-4 h-4" />
+                Admin
+              </Button>
+            )}
+            <Button
+              onClick={() => setShowAddGroup(true)}
+              className="flex items-center gap-2"
+            >
+              <FolderPlus className="w-4 h-4" />
+              Add Group
+            </Button>
+          </div>
         </div>
 
         <AddGroupDialog
@@ -258,6 +353,12 @@ const FADModule = () => {
           onOpenChange={setShowAddGroup}
           onNameChange={setNewGroupName}
           onCreateGroup={createGroup}
+        />
+
+        <AdminLoginDialog
+          isOpen={showAdminLogin}
+          onOpenChange={setShowAdminLogin}
+          onLoginSuccess={handleAdminLogin}
         />
 
         {/* Groups and Documents */}
@@ -275,6 +376,7 @@ const FADModule = () => {
                 selectedFile={selectedFile}
                 uploadingGroupId={uploadingGroupId}
                 loading={loading}
+                isAdmin={isAdmin}
                 canMoveUp={index > 0}
                 canMoveDown={index < groups.length - 1}
                 onFileSelect={handleFileSelect}
@@ -282,6 +384,8 @@ const FADModule = () => {
                 onCancelUpload={handleCancelUpload}
                 onDownloadFile={downloadFile}
                 onViewFile={viewFile}
+                onDeleteFile={deleteFile}
+                onDeleteGroup={deleteGroup}
                 onMoveGroupUp={moveGroupUp}
                 onMoveGroupDown={moveGroupDown}
                 onMoveDocumentUp={moveDocumentUp}

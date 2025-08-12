@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Eye, ChevronUp, ChevronDown } from 'lucide-react';
+import { Download, Eye, ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 import { getFileIcon, formatFileSize } from './utils';
 
 interface Document {
@@ -16,8 +16,10 @@ interface Document {
 
 interface FileCardProps {
   document: Document;
+  isAdmin: boolean;
   onDownload: (document: Document) => void;
   onView: (document: Document) => void;
+  onDelete: (document: Document) => void;
   onMoveUp: (documentId: string) => void;
   onMoveDown: (documentId: string) => void;
   canMoveUp: boolean;
@@ -26,8 +28,10 @@ interface FileCardProps {
 
 export const FileCard: React.FC<FileCardProps> = ({
   document,
+  isAdmin,
   onDownload,
   onView,
+  onDelete,
   onMoveUp,
   onMoveDown,
   canMoveUp,
@@ -76,6 +80,17 @@ export const FileCard: React.FC<FileCardProps> = ({
           >
             <ChevronDown className="w-3 h-3" />
           </Button>
+          {isAdmin && (
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={() => onDelete(document)}
+              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+              title="Delete file"
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          )}
         </div>
         
         {/* Action Buttons */}

@@ -73,24 +73,28 @@ export const GroupCard: React.FC<GroupCardProps> = ({
           <div className="flex items-center gap-2">
             <CardTitle className="text-xl">{group.name}</CardTitle>
             <div className="flex gap-1">
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                onClick={() => onMoveGroupUp(group.id)}
-                disabled={!canMoveUp}
-                className="h-6 w-6 p-0"
-              >
-                <ChevronUp className="w-3 h-3" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                onClick={() => onMoveGroupDown(group.id)}
-                disabled={!canMoveDown}
-                className="h-6 w-6 p-0"
-              >
-                <ChevronDown className="w-3 h-3" />
-              </Button>
+              {isAdmin && (
+                <>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => onMoveGroupUp(group.id)}
+                    disabled={!canMoveUp}
+                    className="h-6 w-6 p-0"
+                  >
+                    <ChevronUp className="w-3 h-3" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => onMoveGroupDown(group.id)}
+                    disabled={!canMoveDown}
+                    className="h-6 w-6 p-0"
+                  >
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </>
+              )}
               {isAdmin && (
                 <Button 
                   size="sm" 

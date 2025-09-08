@@ -60,27 +60,27 @@ export const FileCard: React.FC<FileCardProps> = ({
           </p>
         </div>
         
-        {/* Reorder Controls */}
-        <div className="flex gap-1 justify-center">
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            onClick={() => onMoveUp(document.id)}
-            disabled={!canMoveUp}
-            className="h-6 w-6 p-0"
-          >
-            <ChevronUp className="w-3 h-3" />
-          </Button>
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            onClick={() => onMoveDown(document.id)}
-            disabled={!canMoveDown}
-            className="h-6 w-6 p-0"
-          >
-            <ChevronDown className="w-3 h-3" />
-          </Button>
-          {isAdmin && (
+        {/* Admin Controls */}
+        {isAdmin && (
+          <div className="flex gap-1 justify-center">
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={() => onMoveUp(document.id)}
+              disabled={!canMoveUp}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronUp className="w-3 h-3" />
+            </Button>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={() => onMoveDown(document.id)}
+              disabled={!canMoveDown}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronDown className="w-3 h-3" />
+            </Button>
             <Button 
               size="sm" 
               variant="ghost" 
@@ -90,8 +90,8 @@ export const FileCard: React.FC<FileCardProps> = ({
             >
               <Trash2 className="w-3 h-3" />
             </Button>
-          )}
-        </div>
+          </div>
+        )}
         
         {/* Action Buttons */}
         <div className="flex gap-2 w-full">
